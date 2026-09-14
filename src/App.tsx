@@ -1,12 +1,27 @@
 import { useMemo, useState } from 'react'
 import type { WorkItem } from './types'
 import { parseWorkbook } from './lib/parseFile'
-import { filterItems, pctAtendido, porProjeto, teamSummary, uniqueProjects } from './lib/metrics'
+import {
+  filterItems,
+  pctAtendido,
+  porProjeto,
+  teamSummary,
+  uniqueProjects,
+  totals,
+  taskCountByStatus,
+  hoursByMember,
+  milestones,
+} from './lib/metrics'
 import { UploadZone } from './components/UploadZone'
 import { Filters } from './components/Filters'
 import { StatPanel } from './components/StatPanel'
 import { FulfillmentByProject } from './components/FulfillmentByProject'
 import { TeamTable } from './components/TeamTable'
+import { KpiCard } from './components/KpiCard'
+import { TasksByStatusChart } from './components/TasksByStatusChart'
+import { HoursByMemberChart } from './components/HoursByMemberChart'
+import { GanttChart } from './components/GanttChart'
+import { IconTarget, IconDoc, IconCheckSquare, IconFlag } from './components/icons'
 import './styles.css'
 
 export default function App() {
@@ -45,11 +60,15 @@ export default function App() {
     return filterItems(items, selectedProjects, fromDate, toDate)
   }, [items, selectedProjects, from, to])
 
+  const kpis = useMemo(() => totals(filtered), [filtered])
   const necessidades = useMemo(() => pctAtendido(filtered, 'Necessidade'), [filtered])
   const requisitos = useMemo(() => pctAtendido(filtered, 'Requisito'), [filtered])
   const necessidadesPorProjeto = useMemo(() => porProjeto(filtered, 'Necessidade'), [filtered])
   const requisitosPorProjeto = useMemo(() => porProjeto(filtered, 'Requisito'), [filtered])
   const equipe = useMemo(() => teamSummary(filtered), [filtered])
+  const statusChart = useMemo(() => taskCountByStatus(filtered), [filtered])
+  const horasChart = useMemo(() => hoursByMember(filtered), [filtered])
+  const marcosChart = useMemo(() => milestones(filtered), [filtered])
 
   if (!items) {
     return (
@@ -87,16 +106,21 @@ export default function App() {
         <div className="page-header">
           <h1>Pacotes de trabalho</h1>
           <p>
-            Atendimento de necessidades e requisitos, e distribuição de tarefas da equipe,
-            com base na planilha importada.
+            Visão geral de necessidades, requisitos, tarefas e marcos, com o
+            atendimento por projeto e a carga de trabalho da equipe.
           </p>
+        </div>
+
+        <div className="kpi-row">
+          <KpiCard label="Necessidades" value={kpis.necessidades} icon={<IconTarget />} accent />
+          <KpiCard label="Requisitos" value={kpis.requisitos} icon={<IconDoc />} />
+          <KpiCard label="Tarefas" value={kpis.tarefas} icon={<IconCheckSquare />} />
+          <KpiCard label="Marcos" value={kpis.marcos} icon={<IconFlag />} />
         </div>
 
         <section className="section">
           <h2 className="section-title">Necessidades e requisitos</h2>
-          <p className="section-subtitle">
-            Considerado "atendido" o item com status Confirmada.
-          </p>
+          <p className="section-subtitle">Considerado "atendido" o item com status Confirmada.</p>
 
           <div className="stat-pair">
             <StatPanel
@@ -113,16 +137,24 @@ export default function App() {
             />
           </div>
 
-          <FulfillmentByProject
-            title="Necessidades atendidas por projeto"
-            note="Percentual de necessidades com status Confirmada, por projeto."
-            data={necessidadesPorProjeto}
-          />
-          <FulfillmentByProject
-            title="Requisitos atendidos por projeto"
-            note="Percentual de requisitos com status Confirmada, por projeto."
-            data={requisitosPorProjeto}
-          />
+          <div className="chart-grid">
+            <FulfillmentByProject
+              title="Necessidades atendidas por projeto"
+              note="Percentual de necessidades com status Confirmada, por projeto."
+              data={necessidadesPorProjeto}
+            />
+            <FulfillmentByProject
+              title="Requisitos atendidos por projeto"
+              note="Percentual de requisitos com status Confirmada, por projeto."
+              data={requisitosPorProjeto}
+            />
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="section-title">Marcos</h2>
+          <p className="section-subtitle">Linha do tempo dos marcos e sub-marcos no período filtrado.</p>
+          <GanttChart data={marcosChart} />
         </section>
 
         <section className="section">
@@ -130,7 +162,17 @@ export default function App() {
           <p className="section-subtitle">
             Tarefas e horas registradas por membro, com a distribuição por status.
           </p>
-          <TeamTable members={equipe} />
+
+          <div className="chart-grid">
+            <TasksByStatusChart data={statusChart} />
+            <HoursByMemberChart data={horasChart} />
+          </div>
+
+          <div className="chart-card">
+            <h3>Detalhe por membro</h3>
+            <p className="chart-note">Cada linha mostra a mistura de status das tarefas da pessoa.</p>
+            <TeamTable members={equipe} />
+          </div>
         </section>
       </main>
     </div>
